@@ -32,3 +32,7 @@
 *.app
 
 /mainobjc
+# auto generated
+DlShogiResnet15x224SwishBatch.mlmodelc
+DlShogiResnet15x224SwishBatch.m
+DlShogiResnet15x224SwishBatch.h
