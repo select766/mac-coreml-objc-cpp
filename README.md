@@ -26,6 +26,27 @@ make mainobjc
 
 バックエンドは、 `all`: 全てのデバイス(Neural Engine/GPU/CPU)を利用、`cpuandgpu`: CPUまたはGPUを利用、`cpuonly`: CPUのみ利用のいずれか。
 
+# C++から呼び出す版
+
+ソースコード: `maincpp.cpp`, `nnwrapper.mm`, `nnwrapper.hpp`
+
+`maincpp.cpp`は純粋なC++コードで、Objective-Cのことを気にせずCore MLを呼び出すことができる。
+
+## ビルド
+```
+make maincpp
+```
+
+## 実行
+
+バッチサイズ1、全てのバックエンドを利用、10秒間計測する場合
+
+```
+./maincpp 1 all 10
+```
+
+C++版の方が、Objective-C版より若干パフォーマンスが低下する。C++版では出力データを独自のバッファにコピーするが、Objective-C版ではしない（計算結果を無視）ためであると考えられる。
+
 # モデル・テストケースの作成方法
 
 「強い将棋ソフトの創りかた」サンプルコードに従い、15ブロック224チャンネル(`resnet15x224_swish`)のモデルを学習後、以下のリポジトリのjupyter notebookを用いてmlmodelモデルファイルおよびテストケースを生成している。
