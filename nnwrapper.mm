@@ -41,15 +41,15 @@ bool NNWrapper::run(int batch_size, float* input, float* output_policy, float* o
     MLMultiArray *model_input = [[MLMultiArray alloc] initWithDataPointer:input shape:@[[NSNumber numberWithInt:batch_size], @119, @9, @9] dataType:MLMultiArrayDataTypeFloat32 strides:@[@(119*9*9), @(9*9), @9, @1] deallocator:NULL error:NULL];
 
     NSError *error = nil;
-    DlShogiResnet15x224SwishBatchOutput *model_output = [model predictionFromX:model_input error:&error];
+    DlShogiResnet15x224SwishBatchOutput *model_output = [model predictionFromInput:model_input error:&error];
     if (error) {
         NSLog(@"%@", error);
         return false;
     }
 
     // 出力は動的確保された領域に書き出されるため、これを自前のバッファにコピー
-    memcpy(output_policy, model_output.move.dataPointer, batch_size * NNWrapper::policy_size * sizeof(float));
-    memcpy(output_value, model_output.result.dataPointer, batch_size * NNWrapper::value_size * sizeof(float));
+    memcpy(output_policy, model_output.output_policy.dataPointer, batch_size * NNWrapper::policy_size * sizeof(float));
+    memcpy(output_value, model_output.output_value.dataPointer, batch_size * NNWrapper::value_size * sizeof(float));
 
     return true;
 }

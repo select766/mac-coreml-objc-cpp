@@ -12,75 +12,74 @@ const int value_size = 1;
 
 /// Model Prediction Input Type
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0)) __attribute__((visibility("hidden")))
-@interface DlShogiResnet15x224SwishBatchInput : NSObject<MLFeatureProvider>
+@interface DlShogiResnetInput : NSObject<MLFeatureProvider>
 
-/// x as 1 × 119 × 9 × 9 4-dimensional array of floats
-@property (readwrite, nonatomic, strong) MLMultiArray * x;
+/// input as 1 × 119 × 9 × 9 4-dimensional array of floats
+@property (readwrite, nonatomic, strong) MLMultiArray * input;
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithX:(MLMultiArray *)x NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithInput:(MLMultiArray *)input NS_DESIGNATED_INITIALIZER;
 
 @end
 
 
 /// Model Prediction Output Type
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0)) __attribute__((visibility("hidden")))
-@interface DlShogiResnet15x224SwishBatchOutput : NSObject<MLFeatureProvider>
+@interface DlShogiResnetOutput : NSObject<MLFeatureProvider>
 
-/// move as multidimensional array of floats
-@property (readwrite, nonatomic, strong) MLMultiArray * move;
+/// output_policy as multidimensional array of floats
+@property (readwrite, nonatomic, strong) MLMultiArray * output_policy;
 
-/// result as multidimensional array of floats
-@property (readwrite, nonatomic, strong) MLMultiArray * result;
+/// output_value as multidimensional array of floats
+@property (readwrite, nonatomic, strong) MLMultiArray * output_value;
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithMove:(MLMultiArray *)move result:(MLMultiArray *)result NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithOutput_policy:(MLMultiArray *)output_policy output_value:(MLMultiArray *)output_value NS_DESIGNATED_INITIALIZER;
 
 @end
 
+@implementation DlShogiResnetInput
 
-@implementation DlShogiResnet15x224SwishBatchInput
-
-- (instancetype)initWithX:(MLMultiArray *)x {
+- (instancetype)initWithInput:(MLMultiArray *)input {
     self = [super init];
     if (self) {
-        _x = x;
+        _input = input;
     }
     return self;
 }
 
 - (NSSet<NSString *> *)featureNames {
-    return [NSSet setWithArray:@[@"x"]];
+    return [NSSet setWithArray:@[@"input"]];
 }
 
 - (nullable MLFeatureValue *)featureValueForName:(NSString *)featureName {
-    if ([featureName isEqualToString:@"x"]) {
-        return [MLFeatureValue featureValueWithMultiArray:_x];
+    if ([featureName isEqualToString:@"input"]) {
+        return [MLFeatureValue featureValueWithMultiArray:_input];
     }
     return nil;
 }
 
 @end
 
-@implementation DlShogiResnet15x224SwishBatchOutput
+@implementation DlShogiResnetOutput
 
-- (instancetype)initWithMove:(MLMultiArray *)move result:(MLMultiArray *)result {
+- (instancetype)initWithOutput_policy:(MLMultiArray *)output_policy output_value:(MLMultiArray *)output_value {
     self = [super init];
     if (self) {
-        _move = move;
-        _result = result;
+        _output_policy = output_policy;
+        _output_value = output_value;
     }
     return self;
 }
 
 - (NSSet<NSString *> *)featureNames {
-    return [NSSet setWithArray:@[@"move", @"result"]];
+    return [NSSet setWithArray:@[@"output_policy", @"output_value"]];
 }
 
 - (nullable MLFeatureValue *)featureValueForName:(NSString *)featureName {
-    if ([featureName isEqualToString:@"move"]) {
-        return [MLFeatureValue featureValueWithMultiArray:_move];
+    if ([featureName isEqualToString:@"output_policy"]) {
+        return [MLFeatureValue featureValueWithMultiArray:_output_policy];
     }
-    if ([featureName isEqualToString:@"result"]) {
-        return [MLFeatureValue featureValueWithMultiArray:_result];
+    if ([featureName isEqualToString:@"output_value"]) {
+        return [MLFeatureValue featureValueWithMultiArray:_output_value];
     }
     return nil;
 }
@@ -139,25 +138,25 @@ void check_result(const float* expected, const float* actual, int count) {
 void run_model_once(MLModel* model, MLMultiArray *model_input, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
     NSError *error = nil;
     
-    DlShogiResnet15x224SwishBatchInput *input_ = [[DlShogiResnet15x224SwishBatchInput alloc] initWithX:model_input];
+    DlShogiResnetInput *input_ = [[DlShogiResnetInput alloc] initWithInput:model_input];
     id<MLFeatureProvider> outFeatures = [model predictionFromFeatures:input_ options:[[MLPredictionOptions alloc] init] error:&error];
     if (error) {
         NSLog(@"%@", error);
         exit(1);
     }
 
-    DlShogiResnet15x224SwishBatchOutput *model_output = [[DlShogiResnet15x224SwishBatchOutput alloc] initWithMove:(MLMultiArray *)[outFeatures featureValueForName:@"move"].multiArrayValue result:(MLMultiArray *)[outFeatures featureValueForName:@"result"].multiArrayValue];
+    DlShogiResnetOutput *model_output = [[DlShogiResnetOutput alloc] initWithOutput_policy:(MLMultiArray *)[outFeatures featureValueForName:@"output_policy"].multiArrayValue output_value:(MLMultiArray *)[outFeatures featureValueForName:@"output_value"].multiArrayValue];
 
     if (verify) {
-        MLMultiArray *output_move = model_output.move;
-        MLMultiArray *output_result = model_output.result;
-        // NSLog(@"%@", output_move);
-        // NSLog(@"%@", output_result);
+        MLMultiArray *output_policy = model_output.output_policy;
+        MLMultiArray *output_value = model_output.output_value;
+        // NSLog(@"%@", output_policy);
+        // NSLog(@"%@", output_value);
 
         fprintf(stderr, "Comparing output_policy to test case\n");
-        check_result(output_policy_expected, (float*)output_move.dataPointer, batch_size * policy_size);
+        check_result(output_policy_expected, (float*)output_policy.dataPointer, batch_size * policy_size);
         fprintf(stderr, "Comparing output_value to test case\n");
-        check_result(output_value_expected, (float*)output_result.dataPointer, batch_size * value_size);
+        check_result(output_value_expected, (float*)output_value.dataPointer, batch_size * value_size);
     }
 }
 

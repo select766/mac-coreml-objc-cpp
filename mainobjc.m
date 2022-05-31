@@ -61,22 +61,22 @@ void check_result(const float* expected, const float* actual, int count) {
 void run_model_once(DlShogiResnet15x224SwishBatch* model, MLMultiArray *model_input, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
     NSError *error = nil;
 
-    DlShogiResnet15x224SwishBatchOutput *model_output = [model predictionFromX:model_input error:&error];
+    DlShogiResnet15x224SwishBatchOutput *model_output = [model predictionFromInput:model_input error:&error];
     if (error) {
         NSLog(@"%@", error);
         exit(1);
     }
 
     if (verify) {
-        MLMultiArray *output_move = model_output.move;
-        MLMultiArray *output_result = model_output.result;
-        // NSLog(@"%@", output_move);
-        // NSLog(@"%@", output_result);
+        MLMultiArray *output_policy = model_output.output_policy;
+        MLMultiArray *output_value = model_output.output_value;
+        // NSLog(@"%@", output_policy);
+        // NSLog(@"%@", output_value);
 
         fprintf(stderr, "Comparing output_policy to test case\n");
-        check_result(output_policy_expected, (float*)output_move.dataPointer, batch_size * policy_size);
+        check_result(output_policy_expected, (float*)output_policy.dataPointer, batch_size * policy_size);
         fprintf(stderr, "Comparing output_value to test case\n");
-        check_result(output_value_expected, (float*)output_result.dataPointer, batch_size * value_size);
+        check_result(output_value_expected, (float*)output_value.dataPointer, batch_size * value_size);
     }
 }
 

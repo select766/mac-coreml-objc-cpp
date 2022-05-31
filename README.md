@@ -63,7 +63,7 @@ PyTorchで作成したテストケースと結果を比較する機能が実装�
 
 ```
 Comparing output_policy to test case
-Max difference: 0.000023
+Max difference: 0.000025
 Comparing output_value to test case
 Max difference: 0.000001
 ```
@@ -72,9 +72,9 @@ Max difference: 0.000001
 
 ```
 Comparing output_policy to test case
-Error at index 49: -0.791788 != -1.000000
+Error at index 49: -0.918101 != -1.128906
 Comparing output_value to test case
-Max difference: 0.005533
+Max difference: 0.007170
 ```
 
 policyについて、index0〜48は許容範囲だが、49は大きな誤差が出ている。内部の計算がfloat16であるため、桁落ちなどの要因で大きな誤差が出る場合があるようである。
