@@ -5,8 +5,8 @@ RUN_TIME_SEC=10
 mainobjc: mainobjc.m DlShogiResnet15x224SwishBatch.m DlShogiResnet15x224SwishBatch.mlmodelc
 	gcc -o mainobjc -O3 mainobjc.m DlShogiResnet15x224SwishBatch.m -framework Foundation -framework CoreML
 
-mainobjcdynamic: mainobjcdynamic.m DlShogiResnet15x224SwishBatch.m
-	gcc -o mainobjcdynamic -O3 mainobjcdynamic.m DlShogiResnet15x224SwishBatch.m -framework Foundation -framework CoreML
+mainobjcdynamic: mainobjcdynamic.m
+	gcc -o mainobjcdynamic -O3 mainobjcdynamic.m -framework Foundation -framework CoreML
 
 # gcc -o maincpp --std=c++11 maincpp.cpp nnwrapper.mm DlShogiResnet15x224SwishBatch.m -framework Foundation -framework CoreML
 # error: invalid argument '--std=c++11' not allowed with 'Objective-C'

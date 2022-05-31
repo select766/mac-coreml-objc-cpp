@@ -4,12 +4,88 @@
 #import <time.h>
 #import <Foundation/Foundation.h>
 #import <CoreML/CoreML.h>
-#import "DlShogiResnet15x224SwishBatch.h"
 
 const int test_case_size = 1024;
 const int input_size = 119 * 9 * 9;
 const int policy_size = 2187;
 const int value_size = 1;
+
+/// Model Prediction Input Type
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0)) __attribute__((visibility("hidden")))
+@interface DlShogiResnet15x224SwishBatchInput : NSObject<MLFeatureProvider>
+
+/// x as 1 × 119 × 9 × 9 4-dimensional array of floats
+@property (readwrite, nonatomic, strong) MLMultiArray * x;
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithX:(MLMultiArray *)x NS_DESIGNATED_INITIALIZER;
+
+@end
+
+
+/// Model Prediction Output Type
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0)) __attribute__((visibility("hidden")))
+@interface DlShogiResnet15x224SwishBatchOutput : NSObject<MLFeatureProvider>
+
+/// move as multidimensional array of floats
+@property (readwrite, nonatomic, strong) MLMultiArray * move;
+
+/// result as multidimensional array of floats
+@property (readwrite, nonatomic, strong) MLMultiArray * result;
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithMove:(MLMultiArray *)move result:(MLMultiArray *)result NS_DESIGNATED_INITIALIZER;
+
+@end
+
+
+@implementation DlShogiResnet15x224SwishBatchInput
+
+- (instancetype)initWithX:(MLMultiArray *)x {
+    self = [super init];
+    if (self) {
+        _x = x;
+    }
+    return self;
+}
+
+- (NSSet<NSString *> *)featureNames {
+    return [NSSet setWithArray:@[@"x"]];
+}
+
+- (nullable MLFeatureValue *)featureValueForName:(NSString *)featureName {
+    if ([featureName isEqualToString:@"x"]) {
+        return [MLFeatureValue featureValueWithMultiArray:_x];
+    }
+    return nil;
+}
+
+@end
+
+@implementation DlShogiResnet15x224SwishBatchOutput
+
+- (instancetype)initWithMove:(MLMultiArray *)move result:(MLMultiArray *)result {
+    self = [super init];
+    if (self) {
+        _move = move;
+        _result = result;
+    }
+    return self;
+}
+
+- (NSSet<NSString *> *)featureNames {
+    return [NSSet setWithArray:@[@"move", @"result"]];
+}
+
+- (nullable MLFeatureValue *)featureValueForName:(NSString *)featureName {
+    if ([featureName isEqualToString:@"move"]) {
+        return [MLFeatureValue featureValueWithMultiArray:_move];
+    }
+    if ([featureName isEqualToString:@"result"]) {
+        return [MLFeatureValue featureValueWithMultiArray:_result];
+    }
+    return nil;
+}
+
+@end
 
 void malloc_read(float** dst, FILE* fp, size_t size) {
     *dst = (float*)malloc(size);
@@ -60,14 +136,17 @@ void check_result(const float* expected, const float* actual, int count) {
     return;
 }
 
-void run_model_once(DlShogiResnet15x224SwishBatch* model, MLMultiArray *model_input, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
+void run_model_once(MLModel* model, MLMultiArray *model_input, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
     NSError *error = nil;
-
-    DlShogiResnet15x224SwishBatchOutput *model_output = [model predictionFromX:model_input error:&error];
+    
+    DlShogiResnet15x224SwishBatchInput *input_ = [[DlShogiResnet15x224SwishBatchInput alloc] initWithX:model_input];
+    id<MLFeatureProvider> outFeatures = [model predictionFromFeatures:input_ options:[[MLPredictionOptions alloc] init] error:&error];
     if (error) {
         NSLog(@"%@", error);
         exit(1);
     }
+
+    DlShogiResnet15x224SwishBatchOutput *model_output = [[DlShogiResnet15x224SwishBatchOutput alloc] initWithMove:(MLMultiArray *)[outFeatures featureValueForName:@"move"].multiArrayValue result:(MLMultiArray *)[outFeatures featureValueForName:@"result"].multiArrayValue];
 
     if (verify) {
         MLMultiArray *output_move = model_output.move;
@@ -147,12 +226,17 @@ int main(int argc, const char** argv) {
         NSLog(@"Loading already compiled model");
     }
 
-    DlShogiResnet15x224SwishBatch* model = [[DlShogiResnet15x224SwishBatch alloc] initWithContentsOfURL:[NSURL fileURLWithPath: modelc_path_ns] configuration:config error:&error];
+    MLModel *model = [MLModel modelWithContentsOfURL:[NSURL fileURLWithPath: modelc_path_ns] configuration:config error:&error];
     NSLog(@"%@", model);
     NSLog(@"%@", error);
 
     if (!model) {
         NSLog(@"Failed to load model, %@", error);
+        exit(1);
+    }
+
+    if (![model init]) {
+        NSLog(@"Failed to initialize model");
         exit(1);
     }
 
