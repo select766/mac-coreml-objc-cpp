@@ -58,8 +58,10 @@ void check_result(const float* expected, const float* actual, int count) {
     return;
 }
 
-void run_model_once(DlShogiResnet15x224SwishBatch* model, MLMultiArray *model_input, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
+void run_model_once(DlShogiResnet15x224SwishBatch* model, float *input_data, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
     NSError *error = nil;
+
+    MLMultiArray *model_input = [[MLMultiArray alloc] initWithDataPointer:input_data shape:@[[NSNumber numberWithInt:batch_size], @119, @9, @9] dataType:MLMultiArrayDataTypeFloat32 strides:@[@(119*9*9), @(9*9), @9, @1] deallocator:NULL error:NULL];
 
     DlShogiResnet15x224SwishBatchOutput *model_output = [model predictionFromInput:model_input error:&error];
     if (error) {
@@ -130,9 +132,7 @@ int main(int argc, const char** argv) {
     float *input_data, *output_policy_expected, *output_value_expected;
     read_test_case(&input_data, &output_policy_expected, &output_value_expected);
 
-    MLMultiArray *model_input = [[MLMultiArray alloc] initWithDataPointer:input_data shape:@[[NSNumber numberWithInt:batch_size], @119, @9, @9] dataType:MLMultiArrayDataTypeFloat32 strides:@[@(119*9*9), @(9*9), @9, @1] deallocator:NULL error:NULL];
-
-    run_model_once(model, model_input, batch_size, 1, output_policy_expected, output_value_expected);
+    run_model_once(model, input_data, batch_size, 1, output_policy_expected, output_value_expected);
 
     long long start_time = get_ns();
     long long elapsed_ns = 0;
@@ -142,7 +142,7 @@ int main(int argc, const char** argv) {
         if (elapsed_ns > run_time * 1000000000LL) {
             break;
         }
-        run_model_once(model, model_input, batch_size, 0, output_policy_expected, output_value_expected);
+        run_model_once(model, input_data, batch_size, 0, output_policy_expected, output_value_expected);
         run_count++;
     }
 

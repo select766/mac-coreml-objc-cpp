@@ -32,24 +32,34 @@ NNWrapper::NNWrapper(const char* computeUnits) {
         NSLog(@"Failed to load model, %@", error);
         exit(1);
     }
-    this->model = model;
+    // 所有権をARCからプログラマに移す
+    this->model = (void*)CFBridgingRetain(model);
 }
 
 bool NNWrapper::run(int batch_size, float* input, float* output_policy, float* output_value) {
-    DlShogiResnet15x224SwishBatch* model = reinterpret_cast<DlShogiResnet15x224SwishBatch*>(this->model);
+    // 所有権を移さない(プログラマのまま)
+    DlShogiResnet15x224SwishBatch* model = (__bridge DlShogiResnet15x224SwishBatch*)(this->model);
 
     MLMultiArray *model_input = [[MLMultiArray alloc] initWithDataPointer:input shape:@[[NSNumber numberWithInt:batch_size], @119, @9, @9] dataType:MLMultiArrayDataTypeFloat32 strides:@[@(119*9*9), @(9*9), @9, @1] deallocator:NULL error:NULL];
 
     NSError *error = nil;
-    DlShogiResnet15x224SwishBatchOutput *model_output = [model predictionFromInput:model_input error:&error];
-    if (error) {
-        NSLog(@"%@", error);
-        return false;
+    @autoreleasepool { // Core ML内部で確保されたメモリを解放するのに必要
+        DlShogiResnet15x224SwishBatchOutput *model_output = [model predictionFromInput:model_input error:&error];
+        if (error) {
+            NSLog(@"%@", error);
+            return false;
+        }
+
+        // 出力は動的確保された領域に書き出されるため、これを自前のバッファにコピー
+        memcpy(output_policy, model_output.output_policy.dataPointer, batch_size * NNWrapper::policy_size * sizeof(float));
+        memcpy(output_value, model_output.output_value.dataPointer, batch_size * NNWrapper::value_size * sizeof(float));
     }
 
-    // 出力は動的確保された領域に書き出されるため、これを自前のバッファにコピー
-    memcpy(output_policy, model_output.output_policy.dataPointer, batch_size * NNWrapper::policy_size * sizeof(float));
-    memcpy(output_value, model_output.output_value.dataPointer, batch_size * NNWrapper::value_size * sizeof(float));
-
     return true;
+}
+
+NNWrapper::~NNWrapper() {
+    // 所有権をARCに返す
+    DlShogiResnet15x224SwishBatch* model = CFBridgingRelease(this->model);
+    // スコープを外れるので解放される
 }
