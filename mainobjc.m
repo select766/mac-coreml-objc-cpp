@@ -137,10 +137,23 @@ int main(int argc, const char** argv) {
     long long start_time = get_ns();
     long long elapsed_ns = 0;
     int run_count = 0;
+    int last_run_count = 0;
+    long long report_cycle = 10 * 1000000000LL;
+    long long next_report_elapsed = report_cycle;
+    long long last_report_elapsed = 0;
     while (1) {
         elapsed_ns = get_ns() - start_time;
         if (elapsed_ns > run_time * 1000000000LL) {
             break;
+        }
+        if (elapsed_ns >= next_report_elapsed) {
+            double elapsed_sec = (double)(elapsed_ns - last_report_elapsed) / 1000000000.0;
+            double inference_per_sec = (double)(run_count - last_run_count) / elapsed_sec;
+            double sample_per_sec = inference_per_sec * batch_size;
+            printf("%f sec elapsed: %f inference / sec, %f samples / sec from last report\n", (double)elapsed_ns / 1000000000.0, inference_per_sec, sample_per_sec);
+            last_report_elapsed = elapsed_ns;
+            last_run_count = run_count;
+            next_report_elapsed += report_cycle;
         }
         run_model_once(model, input_data, batch_size, 0, output_policy_expected, output_value_expected);
         run_count++;
