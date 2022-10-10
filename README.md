@@ -21,10 +21,12 @@ make mainobjc
 バッチサイズ1、全てのバックエンドを利用、10秒間計測する場合
 
 ```
-./mainobjc 1 all 10
+./mainobjc 1 all 10 0
 ```
 
 バックエンドは、 `all`: 全てのデバイス(Neural Engine/GPU/CPU)を利用、`cpuandgpu`: CPUまたはGPUを利用、`cpuonly`: CPUのみ利用のいずれか。
+
+最後の引数は0か1。0はバッチ全体を1つのテンソルとして`predictionFromInput`関数に渡すもの、1は1サンプルずつのテンソルをリストとして`predictionsFromInputs`関数に渡すもの。実験的には`predictionFromInput`の方が高速。
 
 # C++から呼び出す版
 

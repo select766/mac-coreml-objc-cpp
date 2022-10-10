@@ -58,7 +58,7 @@ void check_result(const float* expected, const float* actual, int count) {
     return;
 }
 
-void run_model_once(DlShogiResnet15x224SwishBatch* model, float *input_data, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
+void run_model_once_prediction(DlShogiResnet15x224SwishBatch* model, float *input_data, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
     NSError *error = nil;
 
     MLMultiArray *model_input = [[MLMultiArray alloc] initWithDataPointer:input_data shape:@[[NSNumber numberWithInt:batch_size], @119, @9, @9] dataType:MLMultiArrayDataTypeFloat32 strides:@[@(119*9*9), @(9*9), @9, @1] deallocator:NULL error:NULL];
@@ -82,6 +82,49 @@ void run_model_once(DlShogiResnet15x224SwishBatch* model, float *input_data, int
     }
 }
 
+
+void run_model_once_predictions(DlShogiResnet15x224SwishBatch* model, float *input_data, int batch_size, int verify, float* output_policy_expected, float* output_value_expected) {
+    NSError *error = nil;
+
+    NSMutableArray<DlShogiResnet15x224SwishBatchInput*> *model_inputs = [NSMutableArray arrayWithCapacity:(NSUInteger)batch_size];
+    for (int i = 0; i < batch_size; i++) {
+        MLMultiArray *model_input = [[MLMultiArray alloc] initWithDataPointer:&input_data[i*119*9*9] shape:@[@1, @119, @9, @9] dataType:MLMultiArrayDataTypeFloat32 strides:@[@(119*9*9), @(9*9), @9, @1] deallocator:NULL error:NULL];
+        DlShogiResnet15x224SwishBatchInput *input_ = [[DlShogiResnet15x224SwishBatchInput alloc] initWithInput:model_input];
+        [model_inputs addObject:input_];
+    }
+
+    MLPredictionOptions *options = [[MLPredictionOptions alloc] init];
+
+    NSArray<DlShogiResnet15x224SwishBatchOutput *> *model_outputs = [model predictionsFromInputs:model_inputs options:options error:&error];
+    if (error) {
+        NSLog(@"%@", error);
+        exit(1);
+    }
+
+    if (verify) {
+        for (int i = 0; i < batch_size; i++) {
+            DlShogiResnet15x224SwishBatchOutput *model_output = model_outputs[i];
+            MLMultiArray *output_policy = model_output.output_policy;
+            MLMultiArray *output_value = model_output.output_value;
+            // NSLog(@"%@", output_policy);
+            // NSLog(@"%@", output_value);
+
+            fprintf(stderr, "Comparing output_policy to test case\n");
+            check_result(&output_policy_expected[i*policy_size], (float*)output_policy.dataPointer, policy_size);
+            fprintf(stderr, "Comparing output_value to test case\n");
+            check_result(&output_value_expected[i*value_size], (float*)output_value.dataPointer, value_size);
+        }
+    }
+}
+
+void run_model_once(DlShogiResnet15x224SwishBatch* model, float *input_data, int batch_size, int verify, float* output_policy_expected, float* output_value_expected, bool use_predictions) {
+    if (use_predictions) {
+        run_model_once_predictions(model, input_data, batch_size, verify, output_policy_expected, output_value_expected);
+    } else {
+        run_model_once_prediction(model, input_data, batch_size, verify, output_policy_expected, output_value_expected);
+    }
+}
+
 long long get_ns() {
     struct timespec ts;
     timespec_get(&ts, TIME_UTC);
@@ -89,16 +132,17 @@ long long get_ns() {
 }
 
 int main(int argc, const char** argv) {
-    if (argc != 4) {
-        fprintf(stderr, "mainobjc batch_size backend run_time_sec\n"
+    if (argc < 4) {
+        fprintf(stderr, "mainobjc batch_size backend run_time_sec [use_predictions]\n"
         "backend: all, cpuandgpu, cpuonly\n"
-        "example: ./mainobjc 16 all 60\n"
+        "example: ./mainobjc 16 all 60 0\n"
         );
         exit(1);
     }
     const int batch_size = atoi(argv[1]);
     const double run_time = atof(argv[3]);
     const char* backend = argv[2];
+    const bool use_predictions = argc >= 5 ? atoi(argv[4]) != 0 : false;
 
     MLModelConfiguration* config = [MLModelConfiguration new];
     // 使用デバイス
@@ -132,7 +176,7 @@ int main(int argc, const char** argv) {
     float *input_data, *output_policy_expected, *output_value_expected;
     read_test_case(&input_data, &output_policy_expected, &output_value_expected);
 
-    run_model_once(model, input_data, batch_size, 1, output_policy_expected, output_value_expected);
+    run_model_once(model, input_data, batch_size, 1, output_policy_expected, output_value_expected, use_predictions);
 
     long long start_time = get_ns();
     long long elapsed_ns = 0;
@@ -155,7 +199,7 @@ int main(int argc, const char** argv) {
             last_run_count = run_count;
             next_report_elapsed += report_cycle;
         }
-        run_model_once(model, input_data, batch_size, 0, output_policy_expected, output_value_expected);
+        run_model_once(model, input_data, batch_size, 0, output_policy_expected, output_value_expected, use_predictions);
         run_count++;
     }
 
